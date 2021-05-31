@@ -17,7 +17,6 @@ static void bench_1w(const Arith_1w *fp) {
   CLOCKS(squaring, fp->sqr(c));
   BENCH = BENCH / 10;
   CLOCKS(inversion, fp->inv(c, a));
-  CLOCKS(square_root, fp->srt(c, a));
 
   fp->misc.free(a);
   fp->misc.free(b);

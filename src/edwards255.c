@@ -30,6 +30,93 @@
 #endif
 
 /**
+ * Doubling for signing
+ * Hisil Section 3.3 page 7
+ */
+void _1way_doubling_1w_full(PointXYZT_1way_full *P) {
+  const Arith_1w fp = Fp25519._1w_full.arith;
+  argElement_1w const X1 = P->X;
+  argElement_1w const Y1 = P->Y;
+  argElement_1w const T1 = P->T;
+  argElement_1w const Z1 = P->Z;
+
+  EltFp25519_1w_fullradix A, B, C, E, F, G, H;
+
+  fp.misc.copy(A, X1);
+  fp.misc.copy(B, Y1);
+  fp.misc.copy(C, Z1);
+  fp.sqr(A);
+  fp.sqr(B);
+  fp.sqr(C);
+
+  fp.add(C, C, C);
+  fp.add(E, X1, Y1);
+  fp.sqr(E);
+  fp.sub(E, E, A);
+  fp.sub(E, E, B);
+
+  fp.sub(G, B, A);
+  fp.sub(F, G, C);
+  fp.add(H, A, B);
+  fp.neg(H);
+
+  fp.mul(X1, E, F);
+  fp.mul(Y1, G, H);
+  fp.mul(T1, E, H);
+  fp.mul(Z1, F, G);
+}
+
+/**
+ * Addition law for twisted Edwards curves
+ * Hisil Section 3.1 page 6
+ */
+void _1way_fulladd_1w_full(
+    PointXYZT_1way_full *R,
+    PointXYZT_1way_full *Q,
+    PointXYZT_1way_full *P) {
+	EltFp25519_1w_fullradix A,B,C,D,E,F,G,H;
+	uint64_t * const X1 = Q->X; uint64_t * const X2 = P->X; uint64_t * const X3 = R->X;
+	uint64_t * const Y1 = Q->Y; uint64_t * const Y2 = P->Y; uint64_t * const Y3 = R->Y;
+	uint64_t * const Z1 = Q->Z; uint64_t * const Z2 = P->Z; uint64_t * const Z3 = R->Z;
+	uint64_t * const T1 = Q->T; uint64_t * const T2 = P->T; uint64_t * const T3 = R->T;
+	uint64_t * const addY1X1 = E;
+	uint64_t * const subY1X1 = F;
+	uint64_t * const addY2X2 = G;
+	uint64_t * const subY2X2 = H;
+
+	EltFp25519_1w_fullradix param_2d = {
+			0xebd69b9426b2f159,
+			0x00e0149a8283b156,
+			0x198e80f2eef3d130,
+			0x2406d9dc56dffce7
+	};
+
+    const Arith_1w fp = Fp25519._1w_full.arith;
+
+	fp.add(addY1X1,Y1,X1);     /*  addY1X1 <- Y1+X1 */
+	fp.sub(subY1X1,Y1,X1);     /*  subY1X1 <- Y1-X1 */
+	fp.add(addY2X2,Y2,X2);     /*  addY2X2 <- Y2+X2 */
+	fp.sub(subY2X2,Y2,X2);     /*  subY2X2 <- Y2-X2 */
+
+	fp.mul(A,subY1X1,subY2X2); /*  A <- subY1X1 * subY2X2  */
+	fp.mul(B,addY1X1,addY2X2); /*  B <- addY1X1 * addY2X2  */
+	fp.mul(C,T1,T2);           /*  C <-      T1 * T2       */
+	fp.mul(C,C,param_2d);      /*  C <-      2d * C        */
+	fp.mul(D,Z1,Z2);           /*  D <-      Z1 * Z2       */
+	fp.add(D,D,D);             /*  D <-       2 * D        */
+
+	fp.sub(E,B,A);   /* E <- B - A  */
+	fp.sub(F,D,C);   /* F <- D - C  */
+	fp.add(G,D,C);   /* G <- D + C  */
+	fp.add(H,B,A);   /* H <- B + A  */
+
+	fp.mul(X3,E,F);  /* X <- E * F  */
+	fp.mul(Y3,G,H);  /* Y <- G * H  */
+	fp.mul(Z3,F,G);  /* Z <- F * G  */
+	fp.mul(T3,E,H);  /* T <- E * H  */
+}
+
+/**
  * This version is intended to compute four independent addition points
  * on four pair of points.
  * Taken from Hisil, Wong,Carter,Dawson
@@ -207,6 +294,39 @@ static inline void _2way_fulladd(PointXYZT_2way *Q, PointXYZT_2way *P) {
 	Fp25519._2w_red.arithex.compress(T1);
 	Fp25519._2w_red.arithex.compress(Z1);
 	Fp25519._2w_red.arithex.compress(Y1);
+}
+
+void _2way_doubling(PointXYZT_2way *P, const int compute_T) {
+  const Arith_2w fp = Fp25519._2w_red.arith;
+  __m256i *const X1 = P->X;
+  __m256i *const Y1 = P->Y;
+  __m256i *const T1 = P->T;
+  __m256i *const Z1 = P->Z;
+  EltFp25519_2w_redradix E, F, G, H;
+
+  fp.add(T1, X1, Y1);
+  Fp25519._2w_red.arithex.compressfast(T1);
+  fp.sqr(T1);          // (X1+Y1)^2
+  fp.sqr(X1);          // A = X^2
+  fp.sqr(Y1);          // B = Y^2
+  fp.sqr(Z1);          // C = Z^2
+  fp.add(Z1, Z1, Z1);  //   = 2Z^2
+  Fp25519._2w_red.arithex.compressfast(Z1);
+
+  naddsub_Fp255_2w_redradix(H, G, X1, Y1);
+  Fp25519._2w_red.arithex.compressfast(H);
+  Fp25519._2w_red.arithex.compressfast(G);
+  fp.add(E, T1, H);  // E = T1 + H
+  fp.sub(F, G, Z1);  // F = G  - Z1
+  Fp25519._2w_red.arithex.compressfast(E);
+  Fp25519._2w_red.arithex.compressfast(F);
+
+  fp.mul(X1, E, F);  // X = E * F
+  fp.mul(Y1, G, H);  // Y = G * H
+  fp.mul(Z1, F, G);  // Z = F * G
+  if (compute_T) {
+    fp.mul(T1, E, H);  // T = E * H
+  }
 }
 
 static const ALIGN uint64_t CONST_2_to_35P_2w[2*NUM_DIGITS_FP25519] = {

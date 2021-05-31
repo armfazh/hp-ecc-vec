@@ -22,12 +22,12 @@
 #include "simd_avx2.h"
 
 #ifdef __cplusplus
-namespace faz{
-  namespace fp448{
+namespace faz {
+namespace fp448 {
 extern "C" {
 #endif /* __cplusplus */
 
-#define SUFFIX(NAME, OPER, IMPL) NAME ## _Fp ## 448 ## _ ## OPER ## w_ ## IMPL
+#define SUFFIX(NAME, OPER, IMPL) NAME##_Fp##448##_##OPER##w_##IMPL
 
 #include "eltfp448_1w_fullradix.c"
 #include "eltfp448_1w_redradix.c"
@@ -38,16 +38,17 @@ const PrimeField Fp448={
     ._1w_full = {
         .arith ={
             .add = SUFFIX(add, 1, fullradix),
+            .cmp = SUFFIX(cmp, 1, fullradix),
+            .cmv = SUFFIX(cmv, 1, fullradix),
             .inv = SUFFIX(inv, 1, fullradix),
             .mul = SUFFIX(mul, 1, fullradix),
             .neg = SUFFIX(neg, 1, fullradix),
+            .sgn = SUFFIX(sgn, 1, fullradix),
             .sqr = SUFFIX(sqr, 1, fullradix),
-            .srt = SUFFIX(srt, 1, fullradix),
             .sub = SUFFIX(sub, 1, fullradix),
             .prime = SUFFIX(prime,  1, fullradix),
             .misc = {
                 .alloc = SUFFIX(alloc,  1, fullradix),
-                .cmp   = SUFFIX(cmp  ,  1, fullradix),
                 .copy  = SUFFIX(copy ,  1, fullradix),
                 .free  = deallocate_bytes,
                 .print = SUFFIX(print,  1, fullradix),
@@ -70,6 +71,7 @@ const PrimeField Fp448={
     ._1w_red = {
         .arith = {
             .add = SUFFIX(add,  1, redradix),
+            .cmp = SUFFIX(cmp,  1, redradix),
             .inv = SUFFIX(inv,  1, redradix),
             .mul = SUFFIX(mul,  1, redradix),
             .neg = SUFFIX(neg,  1, redradix),
@@ -79,7 +81,6 @@ const PrimeField Fp448={
             .prime = SUFFIX(prime,  1, redradix),
             .misc = {
                 .alloc = SUFFIX(alloc,  1, redradix),
-                .cmp   = SUFFIX(cmp  ,  1, redradix),
                 .copy  = SUFFIX(copy ,  1, redradix),
                 .free  = deallocate_bytes,
                 .print = SUFFIX(print,  1, redradix),
@@ -99,13 +100,13 @@ const PrimeField Fp448={
     ._2w_red = {
         .arith = {
             .add = SUFFIX(add,2,redradix),
+            .cmp = SUFFIX(cmp,2,redradix),
             .mul = SUFFIX(mul,2,redradix),
             .ngz = SUFFIX(ngz,2,redradix),
             .sqr = SUFFIX(sqr,2,redradix),
             .sub = SUFFIX(sub,2,redradix),
             .misc = {
                 .alloc = SUFFIX(alloc,  2, redradix),
-                .cmp   = SUFFIX(cmp  ,  2, redradix),
                 .copy  = SUFFIX(copy ,  2, redradix),
                 .free  = deallocate_bytes,
                 .print = SUFFIX(print,  2, redradix),
@@ -129,13 +130,13 @@ const PrimeField Fp448={
     ._4w_red = {
         .arith = {
             .add = SUFFIX(add,  4, redradix),
+            .cmp = SUFFIX(cmp,  4, redradix),
             .mul = SUFFIX(mul,  4, redradix),
             .ngz = SUFFIX(ngz,  4, redradix),
             .sqr = SUFFIX(sqr,  4, redradix),
             .sub = SUFFIX(sub,  4, redradix),
             .misc = {
                 .alloc = SUFFIX(alloc,  4, redradix),
-                .cmp   = SUFFIX(cmp,  4, redradix),
                 .copy  = SUFFIX(copy,  4, redradix),
                 .free  = deallocate_bytes,
                 .print = SUFFIX(print,  4, redradix),

@@ -71,6 +71,15 @@ DECL(void, deinter)(argElement_1w a0, argElement_1w a1, argElement_2w a) {
 	STORE(a1 + 2, CAST128TO256(EXTR(a[4], 1)));
 }
 
+DECL(void, cmv)(__m256i bit, argElement_2w c, argElement_2w a, argElement_2w b) {
+	int i = 0;
+	const __m256i ONE = SET64(0, 1, 0, 1);
+	const __m256i mask = SHUF32(SUB(ZERO,AND(bit,ONE)),0x44);
+	for (i = 0; i < (NUM_DIGITS_FP25519 / 2); i++){
+	    c[i] = _mm256_blendv_epi8(a[i],b[i],mask);
+    }
+}
+
 /**
  *
  * @param c
@@ -296,7 +305,7 @@ DECL(void, intmul)(argElement_2w c, argElement_2w a, argElement_2w b) {
   argElement_2w const times_19 = (argElement_2w)GLOB_times_19;
   argElement_2w const sh_0 = (argElement_2w)GLOB_sh_0;
   argElement_2w const sh_1 = (argElement_2w)GLOB_sh_1;
-  
+
 	__m256i ai,aj;
 	__m256i b0,b1,b2,b3,b4;
 	__m256i d0,d1,d2,d3,d4;
@@ -369,7 +378,7 @@ DECL(void, intsqr)(argElement_2w c) {
   argElement_2w const times_19 = (argElement_2w)GLOB_times_19;
   argElement_2w const sh_0 = (argElement_2w)GLOB_sh_0;
   argElement_2w const sh_1 = (argElement_2w)GLOB_sh_1;
-  
+
 	__m256i ai,aj,a2i,a2j;
 	__m256i b0,b1,b2,b3,b4;
 	__m256i d0,d1,d2,d3,d4;
@@ -617,6 +626,15 @@ DECL(void, compressfast)(argElement_2w c) {
 
 #undef mul19
 
+DECL(void, neg)(argElement_2w c) {
+	argElement_2w _2P = (argElement_2w) CONST_2P_2P_H0H5;
+    int i = 0;
+    for (i = 0; i < (NUM_DIGITS_FP25519 / 2); i++) {
+  	  c[i] = SUB(_2P[i], c[i]);
+    }
+	FN(compress)(c);
+}
+
 DECL(void, mul)(argElement_2w c, argElement_2w a, argElement_2w b) {
   FN(intmul)(c,a,b);
   FN(compress)(c);
@@ -625,6 +643,14 @@ DECL(void, mul)(argElement_2w c, argElement_2w a, argElement_2w b) {
 DECL(void, sqr)(argElement_2w c) {
   FN(intsqr)(c);
   FN(compress)(c);
+}
+
+DECL(void, sqrn)(argElement_2w c, const unsigned int times) {
+	unsigned int it;
+	for(it=0;it<times;it++){
+  		FN(intsqr)(c);
+  		FN(compress)(c);
+	}
 }
 
 DECL(void, rand)(argElement_2w a) {
@@ -641,12 +667,23 @@ DECL(void, print)(FILE*file,argElement_2w a) {
   print_Fp255_1w_redradix(file,a1);
 }
 
-DECL(int, cmp)(argElement_2w a, argElement_2w b) {
+DECL(__m256i, sgn)(argElement_2w a) {
+  int s0, s1;
+  EltFp25519_1w_redradix a0, a1;
+  FN(deinter)(a0, a1, a);
+  s0 = sgn_Fp255_1w_redradix(a0);
+  s1 = sgn_Fp255_1w_redradix(a1);
+  return SET64(0, s1, 0, s0);
+}
+
+DECL(__m256i, cmp)(argElement_2w a, argElement_2w b) {
+  int c0, c1;
   EltFp25519_1w_redradix a0, a1, b0, b1;
   FN(deinter)(a0, a1, a);
   FN(deinter)(b0, b1, b);
-  return cmp_Fp255_1w_redradix(a0, b0)
-      && cmp_Fp255_1w_redradix(a1, b1);
+  c0 = cmp_Fp255_1w_redradix(a0, b0);
+  c1 = cmp_Fp255_1w_redradix(a1, b1);
+  return SET64(0, c1, 0, c0);
 }
 
 DECL(argElement_2w, alloc)() {

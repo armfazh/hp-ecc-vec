@@ -9,7 +9,7 @@ add_definitions(-mavx2)
 set(CMAKE_CXX_STANDARD 11)
 
 # Some Tests
-add_executable(test_mine
+add_executable(test_mine EXCLUDE_FROM_ALL
         tests.h
         tests.c
         test_fp.c
@@ -30,12 +30,14 @@ include("GNUInstallDirs")
 set(GTEST_VERSION "release-1.10.0")
 ExternalProject_Add(googletest-download
   URL            "https://api.github.com/repos/google/googletest/tarball/${GTEST_VERSION}"
+  URL_HASH       "SHA256=e4a7cd97c903818abe7ddb129db9c41cc9fd9e2ded654be57ced26d45c72e4c9"
   CMAKE_ARGS     -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}
                  -DCMAKE_POSITION_INDEPENDENT_CODE=ON
                  -DCMAKE_CXX_COMPILER:FILEPATH=${CMAKE_CXX_COMPILER}
   TEST_COMMAND   ""
   UPDATE_COMMAND ""
 )
+set_target_properties(googletest-download PROPERTIES EXCLUDE_FROM_ALL TRUE)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_INCLUDEDIR})
 link_directories(${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR})
 
@@ -44,7 +46,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 find_package(GMP QUIET)
 
 include_directories(${GTEST_INCLUDE_DIRS})
-add_executable(tests
+add_executable(tests EXCLUDE_FROM_ALL
     runTests.cpp
     test_fp25519_x64.cpp
     test_fp25519_avx2.cpp
@@ -53,10 +55,12 @@ add_executable(tests
     vectors.c
     test_x25519.cpp
     test_ed25519.cpp
+    test_hash255.cpp
 )
 add_dependencies(tests ${TARGET}_static cpu_caps googletest-download)
 target_link_libraries(tests
     $<TARGET_OBJECTS:cpu_caps>
+    $<TARGET_OBJECTS:prng>
     gtest pthread gmp
     ${TARGET}_static)
 add_test(NAME test_lib COMMAND tests)

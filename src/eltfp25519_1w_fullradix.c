@@ -745,7 +745,7 @@ DECL(void, reduce2_mulq)(argElement_1w c, argElement_1w a) {
   :
   : "r" (c), "r" (a)
   : "memory", "cc", "%rax", "%rdx", "%r8", "%r9", "%r10", "%r11", "%r12", "%r13"
-  );  
+  );
 }
 
 DECL(void, reduce2)(argElement_1w c, argElement_1w a) {
@@ -829,6 +829,11 @@ DECL(void, ser)(uint8_t *buffer, argElement_1w c) {
 DECL(void, unser)(argElement_1w c, uint8_t *buffer) {
   FN(copy)(c,(argElement_1w)buffer);
   FN(modp)(c);
+}
+
+DECL(int, sgn)(argElement_1w c) {
+  FN(modp)(c);
+  return c[0]&0x1;
 }
 
 DECL(int, cmp)(argElement_1w a, argElement_1w b) {
@@ -1322,6 +1327,30 @@ DECL(void, sub)(argElement_1w c, argElement_1w a, argElement_1w b) {
   :
   : "r" (c), "r" (a), "r" (b)
   : "memory", "cc", "%rax", "%rcx", "%r8", "%r9", "%r10", "%r11"
+  );
+}
+
+DECL(void, cmv)(int bit, argElement_1w c, argElement_1w a, argElement_1w b) {
+  __asm__ __volatile__(
+  "test       %3,     %3 ;"
+  "movq    0(%1),  %%rax ;"
+  "cmovnz  0(%2),  %%rax ;"
+  "movq    %%rax,  0(%0) ;"
+
+  "movq    8(%1),  %%rax ;"
+  "cmovnz  8(%2),  %%rax ;"
+  "movq    %%rax,  8(%0) ;"
+
+  "movq   16(%1),  %%rax ;"
+  "cmovnz 16(%2),  %%rax ;"
+  "movq    %%rax, 16(%0) ;"
+
+  "movq   24(%1),  %%rax ;"
+  "cmovnz 24(%2),  %%rax ;"
+  "movq    %%rax, 24(%0) ;"
+  :
+  : "r" (c), "r" (a), "r" (b), "r" (bit)
+  : "memory", "cc", "%rax"
   );
 }
 

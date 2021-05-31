@@ -423,12 +423,37 @@ DECL(void, ser)(uint8_t *buf, argElement_1w a) {
   ser_Fp255_1w_fullradix(buf,c);
 }
 
+DECL(int, sgn)(argElement_1w a) {
+    ALIGN uint8_t a_bytes[SIZE_FP25519];
+    FN(ser)(a_bytes, a);
+    return a_bytes[0]&0x1;
+}
+
 DECL(int, cmp)(argElement_1w a, argElement_1w b) {
   ALIGN uint8_t a_bytes[SIZE_FP25519];
   ALIGN uint8_t b_bytes[SIZE_FP25519];
   FN(ser)(a_bytes, a);
   FN(ser)(b_bytes, b);
-  return cmp_bytes(a_bytes, b_bytes, SIZE_FP25519);
+  return cmp_bytes(a_bytes, b_bytes, SIZE_FP25519) & 0x1;
+}
+
+DECL(void, cmv)(int bit, argElement_1w c, argElement_1w a, argElement_1w b) {
+    const __m256i mask = SET164(-(int64_t)bit);
+    __m256i a0 = LOAD(a + 0);
+    __m256i a1 = LOAD(a + 1);
+    __m256i a2 = LOAD(a + 2);
+
+    __m256i b0 = LOAD(b + 0);
+    __m256i b1 = LOAD(b + 1);
+    __m256i b2 = LOAD(b + 2);
+
+    __m256i c0 = _mm256_blendv_epi8(a0,b0,mask);
+    __m256i c1 = _mm256_blendv_epi8(a1,b1,mask);
+    __m256i c2 = _mm256_blendv_epi8(a2,b2,mask);
+
+    STORE(c + 0, c0);
+    STORE(c + 1, c1);
+    STORE(c + 2, c2);
 }
 
 DECL(void, add)(argElement_1w c, argElement_1w a, argElement_1w b) {
@@ -652,42 +677,42 @@ DECL(void, inv)(argElement_1w c, argElement_1w a) {
   FN(sqrn)(T[1], 1);
   FN(copy)(T[2], T[1]);
   FN(sqrn)(T[2], 2);
-  FN(mul)(T[0], T[4], T[2]);
+  FN(intmul)(T[0], T[4], T[2]);
   FN(compress)(T[0]);
-  FN(mul)(T[1], T[1], T[0]);
+  FN(intmul)(T[1], T[1], T[0]);
   FN(compress)(T[1]);
   FN(copy)(T[2], T[1]);
   FN(sqrn)(T[2], 1);
-  FN(mul)(T[0], T[0], T[2]);
+  FN(intmul)(T[0], T[0], T[2]);
   FN(compress)(T[0]);
   FN(copy)(T[2], T[0]);
   FN(sqrn)(T[2], 5);
-  FN(mul)(T[0], T[0], T[2]);
+  FN(intmul)(T[0], T[0], T[2]);
   FN(compress)(T[0]);
   FN(copy)(T[2], T[0]);
   FN(sqrn)(T[2], 10);
-  FN(mul)(T[2], T[2], T[0]);
+  FN(intmul)(T[2], T[2], T[0]);
   FN(compress)(T[2]);
   FN(copy)(T[3], T[2]);
   FN(sqrn)(T[3], 20);
-  FN(mul)(T[3], T[3], T[2]);
+  FN(intmul)(T[3], T[3], T[2]);
   FN(compress)(T[3]);
   FN(sqrn)(T[3], 10);
-  FN(mul)(T[3], T[3], T[0]);
+  FN(intmul)(T[3], T[3], T[0]);
   FN(compress)(T[3]);
   FN(copy)(T[0], T[3]);
   FN(sqrn)(T[0], 50);
-  FN(mul)(T[0], T[0], T[3]);
+  FN(intmul)(T[0], T[0], T[3]);
   FN(compress)(T[0]);
   FN(copy)(T[2], T[0]);
   FN(sqrn)(T[2], 100);
-  FN(mul)(T[2], T[2], T[0]);
+  FN(intmul)(T[2], T[2], T[0]);
   FN(compress)(T[2]);
   FN(sqrn)(T[2], 50);
-  FN(mul)(T[2], T[2], T[3]);
+  FN(intmul)(T[2], T[2], T[3]);
   FN(compress)(T[2]);
   FN(sqrn)(T[2], 5);
-  FN(mul)(T[1], T[1], T[2]);
+  FN(intmul)(T[1], T[1], T[2]);
   FN(compress)(T[1]);
 }
 
@@ -702,15 +727,12 @@ DECL(void, invsqrt)(argElement_1w uv_p38, argElement_1w u, argElement_1w v) {
   EltFp25519_1w_redradix v2, uv, uv3, uv7, x2, x9, sqrt;
   argElement_1w Tab[4];
 
-  FN(mul)(uv, u, v);
-  FN(compress)(uv);/* uv */
+  FN(mul)(uv, u, v);     /* uv */
   FN(copy)(v2, v);
-  FN(sqr)(v2);            /* v^2 */
-  FN(mul)(uv3, uv, v2);
-  FN(compress)(uv3);/* uv^3 */
-  FN(sqr)(v2);            /* v^4 */
-  FN(mul)(uv7, uv3, v2);
-  FN(compress)(uv7);/* uv^7 */
+  FN(sqr)(v2);           /* v^2 */
+  FN(mul)(uv3, uv, v2);  /* uv^3 */
+  FN(sqr)(v2);           /* v^4 */
+  FN(mul)(uv7, uv3, v2); /* uv^7 */
 
   Tab[0] = x2;
   Tab[1] = x9;
@@ -723,72 +745,58 @@ DECL(void, invsqrt)(argElement_1w uv_p38, argElement_1w u, argElement_1w v) {
   FN(copy)(Tab[1], Tab[0]);
   FN(sqrn)(Tab[1], 2);
   FN(mul)(Tab[1], Tab[1], Tab[3]);
-  FN(compress)(Tab[1]);
   /* 1 */
   FN(mul)(Tab[0], Tab[0], Tab[1]);
-  FN(compress)(Tab[0]);
   /* 2 */
   FN(sqrn)(Tab[0], 1);
   FN(mul)(Tab[0], Tab[0], Tab[1]);
-  FN(compress)(Tab[0]);
   /* 3 */
   FN(copy)(Tab[1], Tab[0]);
   FN(sqrn)(Tab[1], 5);
   FN(mul)(Tab[1], Tab[1], Tab[0]);
-  FN(compress)(Tab[1]);
   /* 4 */
   FN(copy)(Tab[2], Tab[1]);
   FN(sqrn)(Tab[2], 5);
   FN(mul)(Tab[2], Tab[2], Tab[0]);
-  FN(compress)(Tab[2]);
   /* 5 */
   FN(copy)(Tab[1], Tab[2]);
   FN(sqrn)(Tab[1], 15);
   FN(mul)(Tab[1], Tab[1], Tab[2]);
-  FN(compress)(Tab[1]);
   /* 6 */
   FN(copy)(Tab[2], Tab[1]);
   FN(sqrn)(Tab[2], 10);
   FN(sqrn)(Tab[2], 20);
   FN(mul)(Tab[2], Tab[2], Tab[1]);
-  FN(compress)(Tab[2]);
   /* 7 */
   FN(copy)(Tab[1], Tab[2]);
   FN(sqrn)(Tab[1], 10);
   FN(sqrn)(Tab[1], 50);
   FN(mul)(Tab[1], Tab[1], Tab[2]);
-  FN(compress)(Tab[1]);
   /* 8 */
   FN(sqrn)(Tab[1], 5);
   FN(mul)(Tab[1], Tab[1], Tab[0]);
-  FN(compress)(Tab[1]);
   /* 9 */
   FN(copy)(Tab[2], Tab[1]);
   FN(sqrn)(Tab[2], 100);
   FN(sqrn)(Tab[2], 20);
   FN(sqrn)(Tab[2], 5);
   FN(mul)(Tab[2], Tab[2], Tab[1]);
-  FN(compress)(Tab[2]);
   /* 10 */
   FN(sqrn)(Tab[2], 2);
   FN(mul)(Tab[2], Tab[2], Tab[3]);
-  FN(compress)(Tab[2]);
 
   FN(mul)(uv_p38, sqrt, uv3);
-  FN(compress)(uv_p38);
   /**
    * Checking whether
    *      v*B^2 == -u
    **/
   FN(copy)(uv3, uv_p38);
-  FN(sqr)(uv3);    /*   B^2 */
-  FN(mul)(uv, uv3, v);
-  FN(compress)(uv); /* v*B^2 */
+  FN(sqr)(uv3);        /*   B^2 */
+  FN(mul)(uv, uv3, v); /* v*B^2 */
   FN(neg)(u);
 
   if (FN(cmp)(uv, u) == 0) {
-    FN(mul)(uv_p38, uv_p38, (argElement_1w) sqrt_minus_one);
-    FN(compress)(uv_p38);/* (√-1)*B */
+    FN(mul)(uv_p38, uv_p38, (argElement_1w) sqrt_minus_one);/* (√-1)*B */
   }
 }
 
